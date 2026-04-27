@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="screenBackground">#EEF2F7</color>
+    <color name="panelBackground">#FFFFFFFF</color>
+    <color name="panelStroke">#D6DCE5</color>
+    <color name="textPrimary">#102027</color>
+    <color name="textSecondary">#5F6B7A</color>
+    <color name="seed">#1565C0</color>
+</resources>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">九轴 IMU-PDR 示例</string>
+    <string name="app_title">手机九轴 IMU 采集与实时 PDR</string>
+    <string name="start_button">开始采集</string>
+    <string name="stop_button">停止</string>
+    <string name="reset_button">重置</string>
+    <string name="save_sensor_button">保存传感器数据</string>
+    <string name="import_track_button">导入数据并后处理</string>
+    <string name="mode_pdr">PDR</string>
+    <string name="mode_gnss">GNSS</string>
+    <string name="mode_hybrid">PDR+GNSS</string>
+    <string name="long_press_hint">长按地图可设置 PDR 起点。</string>
+    <string name="tab_map">地图</string>
+    <string name="tab_sensor">传感器</string>
+    <string name="tab_reference">参考</string>
+    <string name="tab_settings">设置</string>
+    <string name="reference_sky_title">卫星云图</string>
+    <string name="reference_sky_desc">查看当前可见卫星分布与参与定位情况。</string>
+    <string name="reference_summary_title">GNSS 摘要</string>
+    <string name="reference_posture_title">姿态摘要</string>
+    <string name="reference_posture_desc">显示当前持机状态、姿态角和航向估计。</string>
+    <string name="settings_model_title">PDR 模型</string>
+    <string name="settings_height_label">身高</string>
+    <string name="settings_height_hint">请输入厘米，例如 175</string>
+    <string name="settings_apply_height_button">应用身高参数</string>
+    <string name="settings_trajectory_title">轨迹绘制</string>
+    <string name="settings_draw_live_trajectory">绘制实时轨迹</string>
+    <string name="settings_show_imported_trajectory">显示导入后处理轨迹</string>
+    <string name="settings_navigation_title">定位导航模式</string>
+</resources>

@@ -1,0 +1,6 @@
+2. 传感器数据获取：手机采集传感器数据
+获取传感器服务
+指定传感器类型
+添加传感器监听器
+注销传感器监听器
+p 手机采集传感器数据ü 获取传感器服务ØContext.getSystemService(string)方法获取系统服务ü指定传感器类型ØSensorManager.getDefaultSensor()方法指定监听传感器ØSensor getDefaultSensor(int type);ü 添加传感器监听器ØSensorManager.registerListener()方法为Sensor注册监听器Øboolean registerListener(SensorEventListener listener,Sensor sensor, int rateUs)ü注销传感器监听器ØSensorManager.unregisterListener()方法注销传感器监听器Øvoid unregisterListener(SensorEventListener listener)

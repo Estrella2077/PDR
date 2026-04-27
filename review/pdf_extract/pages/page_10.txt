@@ -1,0 +1,5 @@
+3. 实时行人航迹推算：航向与位置初始化p 初始化处理（位置初始化）ü 调用locationmanager类生成此时的位置信息ØgetSystemService(Context.Location.LOCATION_SERVICE)ü 设置位置获取方式ØGPS(LocationManager.GPS_PROVIDER)ØNETWORK(LocationMannager.NETWORK_PROVIDER)ü获取位置ØlocationManager.getProvider(GPS_PROVIDER)ü 位置更新（监听）ØonLocationChanged()方式
+初始化•初始航向•初始位置
+姿态滤波•六轴计算•九轴计算
+脚步处理•步频探测•步长估计
+位置更新•坐标转换•递推计算
