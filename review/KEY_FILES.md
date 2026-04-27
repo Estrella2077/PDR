@@ -2,7 +2,7 @@
 
 ## 主逻辑
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\MainActivity.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\MainActivity.kt`
 
 作用：
 
@@ -17,7 +17,7 @@
 
 ## PDR 核心
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\PdrProcessor.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\PdrProcessor.kt`
 
 作用：
 
@@ -29,7 +29,7 @@
 - 位置增量推算
 - 支持按身高生成模型参数
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\AhrsEstimator.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\AhrsEstimator.kt`
 
 作用：
 
@@ -38,7 +38,7 @@
 - 根据陀螺仪积分并结合重力 / 地磁反馈更新四元数
 - 输出 `yaw / pitch / roll`
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\GeomagneticHelper.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\GeomagneticHelper.kt`
 
 作用：
 
@@ -47,7 +47,7 @@
 
 ## 导入后处理
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\ImportedTrackParser.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\ImportedTrackParser.kt`
 
 作用：
 
@@ -58,7 +58,7 @@
 
 ## 模型参数定义
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\PdrModelPreset.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\PdrModelPreset.kt`
 
 作用：
 
@@ -68,7 +68,7 @@
 
 ## 传感器曲线控件
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\TripleAxisChartView.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\TripleAxisChartView.kt`
 
 作用：
 
@@ -76,7 +76,7 @@
 
 ## 卫星云图控件
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\SatelliteSkyView.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\SatelliteSkyView.kt`
 
 作用：
 
@@ -84,9 +84,9 @@
 
 ## 坐标转换
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\Transer.java`
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\GPSPoint.java`
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\OutputXY.java`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\Transer.java`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\GPSPoint.java`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\OutputXY.java`
 
 作用：
 
@@ -95,7 +95,7 @@
 
 ## 数据保存
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\java\com\example\imupdr\CsvSessionWriter.kt`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\java\com\example\imupdr\CsvSessionWriter.kt`
 
 作用：
 
@@ -104,7 +104,7 @@
 
 ## 主界面布局
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\res\layout\activity_main.xml`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\res\layout\activity_main.xml`
 
 作用：
 
@@ -117,7 +117,7 @@
 
 ## 文案资源
 
-- `D:\Android Studio\AndroidStudioProjects\codex\app\src\main\res\values\strings.xml`
+- `D:\Android Studio\AndroidStudioProjects\PDR\app\src\main\res\values\strings.xml`
 
 作用：
 

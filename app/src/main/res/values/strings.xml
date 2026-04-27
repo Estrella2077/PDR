@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">九轴 IMU-PDR 示例</string>
-    <string name="app_title">手机九轴 IMU 采集与实时 PDR</string>
+    <string name="app_name">PDR</string>
+    <string name="app_title">PDR</string>
     <string name="start_button">开始采集</string>
     <string name="stop_button">停止</string>
     <string name="reset_button">重置</string>
@@ -23,7 +23,9 @@
     <string name="settings_model_title">PDR 模型</string>
     <string name="settings_height_label">身高</string>
     <string name="settings_height_hint">请输入厘米，例如 175</string>
-    <string name="settings_apply_height_button">应用身高参数</string>
+    <string name="settings_step_scale_label">步长缩放</string>
+    <string name="settings_step_scale_hint">请输入倍率，例如 0.67</string>
+    <string name="settings_apply_height_button">应用模型参数</string>
     <string name="settings_trajectory_title">轨迹绘制</string>
     <string name="settings_draw_live_trajectory">绘制实时轨迹</string>
     <string name="settings_show_imported_trajectory">显示导入后处理轨迹</string>

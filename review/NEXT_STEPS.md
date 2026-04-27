@@ -24,8 +24,8 @@
 
 先让我读取：
 
-- `codex/review/CONTEXT.md`
-- `codex/review/CURRENT_STATUS.md`
-- `codex/review/KEY_FILES.md`
+- `PDR/review/CONTEXT.md`
+- `PDR/review/CURRENT_STATUS.md`
+- `PDR/review/KEY_FILES.md`
 
 然后直接给出下一步任务。

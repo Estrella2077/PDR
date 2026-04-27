@@ -2,8 +2,8 @@
 
 ## 工程路径
 
-- 工程根目录：`D:\Android Studio\AndroidStudioProjects\codex`
-- 调试 APK：`D:\Android Studio\AndroidStudioProjects\codex\app\build\outputs\apk\debug\app-debug.apk`
+- 工程根目录：`D:\Android Studio\AndroidStudioProjects\PDR`
+- 调试 APK：`D:\Android Studio\AndroidStudioProjects\PDR\app\build\outputs\apk\debug\app-debug.apk`
 
 ## 构建状态
 

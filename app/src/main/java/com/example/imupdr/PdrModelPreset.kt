@@ -11,10 +11,8 @@ data class PdrModelConfig(
     val maxStepIntervalMs: Long,
     val stepPeakThreshold: Float,
     val stepAmplitudeThreshold: Float,
-    val stepBaseLengthMeters: Float,
-    val stepFrequencyScale: Float,
-    val minStepLengthMeters: Float,
-    val maxStepLengthMeters: Float
+    val stepModelHeightMeters: Float,
+    val stepLengthScale: Float
 )
 
 enum class PdrModelPreset(val config: PdrModelConfig) {
@@ -30,10 +28,8 @@ enum class PdrModelPreset(val config: PdrModelConfig) {
             maxStepIntervalMs = 1_150L,
             stepPeakThreshold = 1.02f,
             stepAmplitudeThreshold = 0.70f,
-            stepBaseLengthMeters = 0.66f,
-            stepFrequencyScale = 0.22f,
-            minStepLengthMeters = 0.32f,
-            maxStepLengthMeters = 0.88f
+            stepModelHeightMeters = 1.75f,
+            stepLengthScale = 0.67f
         )
     ),
     STANDARD(
@@ -48,10 +44,8 @@ enum class PdrModelPreset(val config: PdrModelConfig) {
             maxStepIntervalMs = 1_100L,
             stepPeakThreshold = 0.92f,
             stepAmplitudeThreshold = 0.55f,
-            stepBaseLengthMeters = 0.70f,
-            stepFrequencyScale = 0.24f,
-            minStepLengthMeters = 0.35f,
-            maxStepLengthMeters = 0.95f
+            stepModelHeightMeters = 1.75f,
+            stepLengthScale = 0.67f
         )
     ),
     SENSITIVE(
@@ -66,25 +60,21 @@ enum class PdrModelPreset(val config: PdrModelConfig) {
             maxStepIntervalMs = 1_050L,
             stepPeakThreshold = 0.80f,
             stepAmplitudeThreshold = 0.42f,
-            stepBaseLengthMeters = 0.73f,
-            stepFrequencyScale = 0.26f,
-            minStepLengthMeters = 0.34f,
-            maxStepLengthMeters = 1.02f
+            stepModelHeightMeters = 1.75f,
+            stepLengthScale = 0.67f
         )
     );
 
     override fun toString(): String = config.displayName
 }
 
-fun createHeightModelConfig(heightCm: Float): PdrModelConfig {
+fun createHeightModelConfig(heightCm: Float, stepLengthScale: Float = PdrModelPreset.STANDARD.config.stepLengthScale): PdrModelConfig {
     val safeHeightCm = heightCm.coerceIn(120f, 220f)
-    val scale = safeHeightCm / 175f
+    val safeScale = stepLengthScale.coerceIn(0.30f, 1.50f)
     val base = PdrModelPreset.STANDARD.config
     return base.copy(
         displayName = "身高 ${safeHeightCm.toInt()} cm",
-        stepBaseLengthMeters = (base.stepBaseLengthMeters + (scale - 1.0f) * 0.22f).coerceIn(0.52f, 0.92f),
-        stepFrequencyScale = (base.stepFrequencyScale * (0.88f + 0.12f * scale)).coerceIn(0.16f, 0.34f),
-        minStepLengthMeters = (base.minStepLengthMeters * scale).coerceIn(0.28f, 0.60f),
-        maxStepLengthMeters = (base.maxStepLengthMeters * scale).coerceIn(0.75f, 1.20f)
+        stepModelHeightMeters = safeHeightCm / 100.0f,
+        stepLengthScale = safeScale
     )
 }

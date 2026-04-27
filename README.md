@@ -1,6 +1,6 @@
 # 九轴IMU-PDR示例
 
-该目录下是一个独立的 Android Studio 工程，全部内容都放在 `codex/` 中，没有修改 `PDR-main` 和 `SensorCollectorWatch-main`。
+该目录下是一个独立的 Android Studio 工程，全部内容都放在 `PDR/` 中，没有修改 `PDR-main` 和 `SensorCollectorWatch-main`。
 
 ## 已实现功能
 
@@ -38,7 +38,7 @@
 
 ## 使用方式
 
-1. 用 Android Studio 打开 `codex/`
+1. 用 Android Studio 打开 `PDR/`
 2. 等待 Gradle 同步完成
 3. 安装到带加速度计、陀螺仪、磁力计和 GNSS 的 Android 手机
 4. 根据需要选择 `PDR / 卫星导航 / PDR+卫星`

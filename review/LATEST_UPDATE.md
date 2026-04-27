@@ -1,36 +1,144 @@
 # Latest Update
 
-Updated: 2026-04-27 00:52:00
+Updated: 2026-04-27 17:44:26
 
 ## This turn
 
-The user asked how to modify the current project so it starts quickly, resists shaking, and keeps more accurate step length.
+The user asked for a project `.md` document to serve as the basis for a PPT, with the overall presentation rhythm roughly matching `D:\大学\位置服务与应用\第4小组(1).pptx`, but without generating the PPT itself.
+
+Touched files:
+
+- `PPT汇报文稿.md`
+- `review/LATEST_UPDATE.md`
+
+Work completed:
+
+- read the local `pptx` skill instructions because the task referenced a `.pptx` file
+- inspected the reference presentation structure indirectly using existing extracted materials under `review/pdf_extract/`
+- attempted `python -m markitdown "D:\大学\位置服务与应用\第4小组(1).pptx"` but local `markitdown` was not installed, so fell back to local extracted presentation text already present in the repo context
+- reviewed the current project architecture and algorithm chain from `MainActivity.kt`, `PdrProcessor.kt`, `AhrsEstimator.kt`, `ImportedTrackParser.kt`, and `CsvSessionWriter.kt`
+- created a slide-oriented markdown draft at `PPT汇报文稿.md`
+
+Document characteristics:
+
+- organized for direct PPT拆页 rather than for developer documentation
+- keeps the same broad course-report flow as the reference presentation:
+  - 软件介绍
+  - 传感器采集
+  - 实时 PDR
+  - 结果与总结
+- reflects the current project state, including:
+  - 九轴 AHRS
+  - 磁偏角修正
+  - 实时地图显示
+  - 数据保存与离线后处理
+  - current `PDR-main` step-length formula path
+  - configurable `stepLengthScale`
+
+Remaining risks:
+
+- the reference `pptx` text extraction available in the repo is partially garbled, so the new markdown matches its structure and reporting rhythm rather than reproducing its wording
+- the markdown is ready for PPT production, but it does not yet include actual screenshots or experiment figures
+
+Next step:
+
+- if needed, refine `PPT汇报文稿.md` into a shorter答辩版, a longer课程汇报版, or a version with explicit “每页标题 + 讲稿提示”
+
+## Prior turn
+
+The user asked me to build a shareable APK after exposing `stepLengthScale` in the settings page.
 
 Touched files:
 
 - `review/LATEST_UPDATE.md`
 
-Findings:
+Build result:
 
-- keep the current short-latency step detector as the primary path because it starts faster than `PDR-main`
-- add anti-shake gating before accepting a step: require vertical-motion dominance, horizontal shake ratio limits, and a short multi-step confirmation before entering stable walking state
-- add an explicit first-step bootstrap so the first accepted step does not immediately use a noisy single interval as final cadence input
-- keep the current bounded step-length model, but improve it with a two-stage rule: conservative startup step length, then blended frequency-based step length after cadence stabilizes
-- if higher absolute accuracy is needed, add a hidden calibration factor similar to `PDR-main`'s `c`, but do not expose it as the only correction mechanism
+- built debug APK successfully with `:app:assembleDebug`
+- output file: `app/build/outputs/apk/debug/app-debug.apk`
+- output size: `47,629,710` bytes
 
 Verification:
 
-- conclusions are based on direct source inspection of `PdrProcessor.kt`, `PdrModelPreset.kt`, and `PDR.java`
-- no app code or runtime behavior changed in this turn
+- Gradle task `:app:assembleDebug` completed successfully using `D:\Android Studio\Android Studio\jbr`
 
-Remaining risks:
+Notes:
 
-- the proposal still requires real-device validation and threshold tuning
-- anti-shake gating that is too strict can hurt slow-walk detection if not tuned carefully
+- this is a debug-signed APK and can be installed manually on other Android phones
+- if the target phone already has the same package installed from a different signature, Android will require uninstalling the old app first
 
 Next step:
 
-- if needed, implement the hybrid design in `PdrProcessor.kt` and add the new parameters to `PdrModelPreset.kt`
+- send `app/build/outputs/apk/debug/app-debug.apk` to the target phone and install it from the file manager
+
+## Prior turn
+
+The user asked to expose `stepLengthScale` on the settings page under `PDR 模型`, while keeping the app in the current state of git-baseline behavior plus only the retained `PDR-main` step-length formula path.
+
+Touched files:
+
+- `app/src/main/java/com/example/imupdr/MainActivity.kt`
+- `app/src/main/java/com/example/imupdr/CsvSessionWriter.kt`
+- `app/src/main/java/com/example/imupdr/ImportedTrackParser.kt`
+- `app/src/main/java/com/example/imupdr/PdrModelPreset.kt`
+- `app/src/main/res/layout/activity_main.xml`
+- `app/src/main/res/values/strings.xml`
+- `review/LATEST_UPDATE.md`
+
+Behavior changes:
+
+- settings page `PDR 模型` now includes a visible `stepLengthScale` input alongside height
+- the apply button now stores and restores both height and step-length scale from shared preferences
+- live collection now writes `step_length_scale` into CSV metadata so saved sessions carry the exact tuning value used during recording
+- offline import now reads `step_length_scale` from file metadata, with current UI value as fallback, so imported replay uses the same step-length scaling logic
+- `createHeightModelConfig(...)` now explicitly accepts `stepLengthScale` and clamps it to `0.30..1.50`
+
+Non-changes:
+
+- no heading, compass, arrow-rotation, AHRS, or direction-judgment logic was changed in this turn
+- the retained `PDR-main` step-length formula in `PdrProcessor.kt` remains the only step-length computation path change
+
+Verification:
+
+- `:app:compileDebugKotlin` completed successfully using `D:\Android Studio\Android Studio\jbr`
+
+Remaining risks:
+
+- `0.67` is still an empirical default for the current phone comparison and may need per-device tuning
+- old CSV files that do not contain `step_length_scale` will still import, but they will use the current settings-page value as fallback
+
+Next step:
+
+- install this build, adjust `步长缩放` in the settings page, and compare the same route against `PDR-main` until the total distance aligns
+## Prior turn
+
+The user reported that on another phone the direction problem disappeared, but with the `PDR-main` step-length formula the same route was still about 1.5 times longer than `PDR-main`.
+
+Touched files:
+
+- `app/src/main/java/com/example/imupdr/PdrModelPreset.kt`
+- `review/LATEST_UPDATE.md`
+
+Findings:
+
+- the app remains in the requested state: git-baseline behavior plus only the `PDR-main` step-length-formula change
+- a route that is about `1.5x` too long is most directly compensated by scaling step length by about `1 / 1.5 = 0.67`
+- updated the hidden `stepLengthScale` default from `1.0` to `0.67` for the existing presets
+- this change does not alter step detection, cadence estimation, heading, or display behavior; it only shortens the final step length produced by the retained `PDR-main` formula path
+
+Verification:
+
+- `:app:compileDebugKotlin` completed successfully using `D:\Android Studio\Android Studio\jbr`
+
+Remaining risks:
+
+- the static-arrow issue is intentionally not addressed in this state because the user requested git-baseline behavior plus only the step-length-formula change
+- real-device validation is still required to confirm whether `0.67` is the right compensation factor on the user's new phone
+- the hidden `stepLengthScale` is present in the model config, but no UI is exposed for tuning it yet
+
+Next step:
+
+- install this build and compare the same route again against `PDR-main`; if needed, continue tuning `stepLengthScale` around `0.60` to `0.75`
 
 ## Prior turn
 

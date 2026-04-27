@@ -9,7 +9,7 @@
 - `PDR-main`
 - `SensorCollectorWatch-main`
 
-新建一个独立工程，放在 `codex/` 目录中，实现：
+新建一个独立工程，放在 `PDR/` 目录中，实现：
 
 - 手机九轴 IMU 采集
 - 基于自采数据在手机上进行 PDR 实时定位
@@ -20,7 +20,7 @@
 
 ### 第一阶段
 
-- 在 `codex/` 下创建独立 Android Studio 工程
+- 在 `PDR/` 下创建独立 Android Studio 工程
 - 实现基础 IMU 采集
 - 实现 CSV 落盘
 - 实现基础 PDR 轨迹推算
@@ -98,7 +98,7 @@
 
 当前主工程是：
 
-- `D:\Android Studio\AndroidStudioProjects\codex`
+- `D:\Android Studio\AndroidStudioProjects\PDR`
 
 这是一个独立工程，不应回写到：
 
@@ -167,16 +167,16 @@
 
 ## 下次继续时建议优先读取的文件
 
-- `codex/review/CURRENT_STATUS.md`
-- `codex/review/KEY_FILES.md`
-- `codex/review/NEXT_STEPS.md`
+- `PDR/review/CURRENT_STATUS.md`
+- `PDR/review/KEY_FILES.md`
+- `PDR/review/NEXT_STEPS.md`
 
 ## 下次对话建议提示词
 
 可以直接对我说：
 
-“先阅读 `codex/review` 里的上下文摘要，再继续修改工程。”
+“先阅读 `PDR/review` 里的上下文摘要，再继续修改工程。”
 
 或者：
 
-“先读取 `codex/review/CURRENT_STATUS.md` 和 `codex/review/KEY_FILES.md`，然后继续上次工作。”
+“先读取 `PDR/review/CURRENT_STATUS.md` 和 `PDR/review/KEY_FILES.md`，然后继续上次工作。”

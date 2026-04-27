@@ -71,9 +71,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var isSavingSession = false
     private var currentMode = NavigationMode.HYBRID
     private var currentHeightCm = DEFAULT_HEIGHT_CM
+    private var currentStepLengthScale = DEFAULT_STEP_LENGTH_SCALE
     private var drawTrajectoryEnabled = true
     private var showImportedTrack = true
-    private var currentModelConfig = createHeightModelConfig(DEFAULT_HEIGHT_CM)
+    private var currentModelConfig = createHeightModelConfig(DEFAULT_HEIGHT_CM, DEFAULT_STEP_LENGTH_SCALE)
     private var sessionFiles: SessionFiles? = null
     private var lastSessionDirectoryName: String? = null
     private var hasCenteredMap = false
@@ -281,14 +282,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun loadPreferences() {
         currentHeightCm = preferences.getFloat(KEY_HEIGHT_CM, DEFAULT_HEIGHT_CM)
+        currentStepLengthScale = preferences.getFloat(KEY_STEP_LENGTH_SCALE, DEFAULT_STEP_LENGTH_SCALE)
         drawTrajectoryEnabled = preferences.getBoolean(KEY_DRAW_TRAJECTORY, true)
         showImportedTrack = preferences.getBoolean(KEY_SHOW_IMPORTED_TRACK, true)
         currentMode = NavigationMode.entries.firstOrNull { it.name == preferences.getString(KEY_NAVIGATION_MODE, NavigationMode.HYBRID.name) } ?: NavigationMode.HYBRID
-        currentModelConfig = createHeightModelConfig(currentHeightCm)
+        currentModelConfig = createHeightModelConfig(currentHeightCm, currentStepLengthScale)
     }
 
     private fun setupControls() {
         binding.heightInput.setText(formatHeightInput(currentHeightCm))
+        binding.stepLengthScaleInput.setText(formatStepLengthScaleInput(currentStepLengthScale))
         binding.drawTrajectorySwitch.isChecked = drawTrajectoryEnabled
         binding.showImportedTrackSwitch.isChecked = showImportedTrack
         syncModeSelection()
@@ -427,7 +430,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun startDataSaving() {
         val effectiveAnchor = anchorPoint ?: latestGnssPoint ?: fetchLastKnownLocation()?.let { GPSPoint(it.latitude, it.longitude) }
-        val files = csvWriter.startSession(effectiveAnchor, currentHeightCm, modeName(currentMode))
+        val files = csvWriter.startSession(effectiveAnchor, currentHeightCm, currentStepLengthScale, modeName(currentMode))
         sessionFiles = files
         lastSessionDirectoryName = files.sessionDirectory.name
         isSavingSession = true
@@ -799,17 +802,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun applyHeightSetting() {
-        val value = binding.heightInput.text.toString().trim().toFloatOrNull()
-        if (value == null || value !in 120f..220f) {
+        val heightValue = binding.heightInput.text.toString().trim().toFloatOrNull()
+        if (heightValue == null || heightValue !in 120f..220f) {
             Toast.makeText(this, "请输入 120 到 220 之间的身高厘米值。", Toast.LENGTH_LONG).show()
             return
         }
-        currentHeightCm = value
-        currentModelConfig = createHeightModelConfig(value)
+        val scaleValue = binding.stepLengthScaleInput.text.toString().trim().toFloatOrNull()
+        if (scaleValue == null || scaleValue !in 0.30f..1.50f) {
+            Toast.makeText(this, "请输入 0.30 到 1.50 之间的步长缩放倍率。", Toast.LENGTH_LONG).show()
+            return
+        }
+        currentHeightCm = heightValue
+        currentStepLengthScale = scaleValue
+        currentModelConfig = createHeightModelConfig(heightValue, scaleValue)
         pdrProcessor.setModelConfig(currentModelConfig)
-        preferences.edit { putFloat(KEY_HEIGHT_CM, value) }
+        preferences.edit {
+            putFloat(KEY_HEIGHT_CM, heightValue)
+            putFloat(KEY_STEP_LENGTH_SCALE, scaleValue)
+        }
         refreshAllPanels()
-        Toast.makeText(this, "已应用身高 ${formatHeightInput(value)} cm", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "已应用模型参数：身高 ${formatHeightInput(heightValue)} cm，步长缩放 ${formatStepLengthScaleInput(scaleValue)}", Toast.LENGTH_SHORT).show()
     }
 
     private fun computePostureSummary(): String {
@@ -836,7 +848,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun importTrackFile(uri: Uri) {
         try {
-            val result = ImportedTrackParser.parse(this, uri, currentHeightCm)
+            val result = ImportedTrackParser.parse(this, uri, currentHeightCm, currentStepLengthScale)
             clearImportedTrack()
             importedTrackResult = result
             cacheImportedTracks(result)
@@ -942,6 +954,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         return String.format(Locale.US, "%.1f°", Math.toDegrees(headingRad.toDouble()))
     }
     private fun formatHeightInput(heightCm: Float): String = if (heightCm % 1f == 0f) heightCm.toInt().toString() else String.format(Locale.US, "%.1f", heightCm)
+    private fun formatStepLengthScaleInput(scale: Float): String = String.format(Locale.US, "%.2f", scale)
     private fun modeName(mode: NavigationMode): String = when (mode) {
         NavigationMode.PDR -> "PDR"
         NavigationMode.GNSS -> "GNSS"
@@ -1027,10 +1040,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         private const val HISTORY_SIZE = 90
         private const val PREFS_NAME = "imu_pdr_preferences"
         private const val KEY_HEIGHT_CM = "height_cm"
+        private const val KEY_STEP_LENGTH_SCALE = "step_length_scale"
         private const val KEY_DRAW_TRAJECTORY = "draw_trajectory"
         private const val KEY_SHOW_IMPORTED_TRACK = "show_imported_track"
         private const val KEY_NAVIGATION_MODE = "navigation_mode"
         private const val DEFAULT_HEIGHT_CM = 180f
+        private const val DEFAULT_STEP_LENGTH_SCALE = 0.67f
         private const val DISPLAY_HEADING_WEIGHT = 0.32f
         private const val MARKER_HEADING_REDRAW_THRESHOLD_DEG = 3.0
     }

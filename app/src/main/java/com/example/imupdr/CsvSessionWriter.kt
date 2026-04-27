@@ -56,7 +56,7 @@ class CsvSessionWriter(private val context: Context) {
     private var rawFlushCounter = 0
     private var stepFlushCounter = 0
 
-    fun startSession(anchorPoint: GPSPoint?, heightCm: Float, navigationModeName: String): SessionFiles {
+    fun startSession(anchorPoint: GPSPoint?, heightCm: Float, stepLengthScale: Float, navigationModeName: String): SessionFiles {
         stopSession()
 
         val baseDirectory = File(
@@ -78,8 +78,8 @@ class CsvSessionWriter(private val context: Context) {
 
         rawWriter = BufferedWriter(FileWriter(rawFile, false))
         stepWriter = BufferedWriter(FileWriter(stepFile, false))
-        writeMetadata(rawWriter, anchorPoint, heightCm, navigationModeName)
-        writeMetadata(stepWriter, anchorPoint, heightCm, navigationModeName)
+        writeMetadata(rawWriter, anchorPoint, heightCm, stepLengthScale, navigationModeName)
+        writeMetadata(stepWriter, anchorPoint, heightCm, stepLengthScale, navigationModeName)
         rawWriter?.write("sensor,wall_time_ms,event_timestamp_ns,x,y,z,accuracy,heading_deg,steps,pos_x_m,pos_y_m")
         rawWriter?.newLine()
         stepWriter?.write("wall_time_ms,step_index,heading_deg,step_length_m,pos_x_m,pos_y_m,total_distance_m,filtered_motion,peak_motion")
@@ -163,16 +163,19 @@ class CsvSessionWriter(private val context: Context) {
         writer: BufferedWriter?,
         anchorPoint: GPSPoint?,
         heightCm: Float,
+        stepLengthScale: Float,
         navigationModeName: String
     ) {
         writer ?: return
-        writer.write("# source=imu_pdr_codex")
+        writer.write("# source=pdr")
         writer.newLine()
         writer.write("# anchor_lat=${anchorPoint?.lat ?: ""}")
         writer.newLine()
         writer.write("# anchor_lon=${anchorPoint?.lon ?: ""}")
         writer.newLine()
         writer.write(String.format(Locale.US, "# height_cm=%.1f", heightCm))
+        writer.newLine()
+        writer.write(String.format(Locale.US, "# step_length_scale=%.3f", stepLengthScale))
         writer.newLine()
         writer.write("# navigation_mode=$navigationModeName")
         writer.newLine()

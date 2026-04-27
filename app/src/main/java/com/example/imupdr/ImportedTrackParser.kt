@@ -32,7 +32,7 @@ data class ImportedTrackResult(
 object ImportedTrackParser {
     private const val GNSS_STALE_MS = 6_000L
 
-    fun parse(context: Context, uri: Uri, fallbackHeightCm: Float): ImportedTrackResult {
+    fun parse(context: Context, uri: Uri, fallbackHeightCm: Float, fallbackStepLengthScale: Float): ImportedTrackResult {
         val metadata = linkedMapOf<String, String>()
         val rawEvents = mutableListOf<RawEvent>()
         val recordedLocalPositions = mutableListOf<Pair<Double, Double>>()
@@ -69,7 +69,7 @@ object ImportedTrackParser {
         } ?: error("无法打开导入文件。")
 
         return if (isRawSensorFile) {
-            processRawSensorFile(context, uri, metadata, rawEvents, recordedLocalPositions, fallbackHeightCm)
+            processRawSensorFile(context, uri, metadata, rawEvents, recordedLocalPositions, fallbackHeightCm, fallbackStepLengthScale)
         } else {
             processStepFile(context, uri, metadata, recordedLocalPositions)
         }
@@ -81,11 +81,13 @@ object ImportedTrackParser {
         metadata: Map<String, String>,
         rawEvents: List<RawEvent>,
         recordedLocalPositions: List<Pair<Double, Double>>,
-        fallbackHeightCm: Float
+        fallbackHeightCm: Float,
+        fallbackStepLengthScale: Float
     ): ImportedTrackResult {
         val heightCm = metadata["height_cm"]?.toFloatOrNull() ?: fallbackHeightCm
+        val stepLengthScale = metadata["step_length_scale"]?.toFloatOrNull() ?: fallbackStepLengthScale
         val processor = PdrProcessor().apply {
-            setModelConfig(createHeightModelConfig(heightCm))
+            setModelConfig(createHeightModelConfig(heightCm, stepLengthScale))
         }
 
         val stepSamples = mutableListOf<StepSample>()

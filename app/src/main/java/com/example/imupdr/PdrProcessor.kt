@@ -289,18 +289,24 @@ class PdrProcessor {
     private fun estimateStepLength(intervalMs: Long): Float {
         val currentFrequencyHz = if (intervalMs > 0L) 1000.0f / intervalMs else 0.0f
         val previousFrequencyHz = if (previousStepIntervalMs > 0L) 1000.0f / previousStepIntervalMs else currentFrequencyHz
-        val blendedFrequencyHz = if (previousStepIntervalMs > 0L) {
+        val stepFrequencyHz = if (previousStepIntervalMs > 0L) {
             currentFrequencyHz * 0.65f + previousFrequencyHz * 0.35f
         } else {
             currentFrequencyHz
         }
-        val boundedFrequency = blendedFrequencyHz.coerceIn(0.8f, 3.2f)
-        return max(
-            modelConfig.minStepLengthMeters,
-            min(
-                modelConfig.maxStepLengthMeters,
-                modelConfig.stepBaseLengthMeters + (boundedFrequency - 1.79f) * modelConfig.stepFrequencyScale
-            )
-        )
+        val heightMeters = modelConfig.stepModelHeightMeters
+        return (
+            PDR_MAIN_STEP_BASE_METERS +
+                PDR_MAIN_HEIGHT_COEFFICIENT * (heightMeters - PDR_MAIN_REFERENCE_HEIGHT_METERS) +
+                PDR_MAIN_FREQUENCY_COEFFICIENT * (stepFrequencyHz - PDR_MAIN_REFERENCE_FREQUENCY_HZ) * heightMeters / PDR_MAIN_REFERENCE_HEIGHT_METERS
+            ) * modelConfig.stepLengthScale
+    }
+
+    private companion object {
+        private const val PDR_MAIN_STEP_BASE_METERS = 0.7f
+        private const val PDR_MAIN_HEIGHT_COEFFICIENT = 0.371f
+        private const val PDR_MAIN_FREQUENCY_COEFFICIENT = 0.227f
+        private const val PDR_MAIN_REFERENCE_HEIGHT_METERS = 1.75f
+        private const val PDR_MAIN_REFERENCE_FREQUENCY_HZ = 1.79f
     }
 }
