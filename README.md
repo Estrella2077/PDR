@@ -1,52 +1,52 @@
-# 九轴IMU-PDR示例
+# 涔濊酱IMU-PDR绀轰緥
 
-该目录下是一个独立的 Android Studio 工程，全部内容都放在 `PDR/` 中，没有修改 `PDR-main` 和 `SensorCollectorWatch-main`。
+璇ョ洰褰曚笅鏄竴涓嫭绔嬬殑 Android Studio 宸ョ▼锛屽叏閮ㄥ唴瀹归兘鏀惧湪 `PDR/` 涓紝娌℃湁淇敼 `PDR-main` 鍜?`SensorCollectorWatch-main`銆?
 
-## 已实现功能
+## 宸插疄鐜板姛鑳?
 
-- 采集手机九轴 IMU 中的三类核心原始数据：
-  - 加速度计
-  - 陀螺仪
-  - 磁力计
-- 使用 `PDR-main` 同类百度地图底图，支持手势缩放
-- 支持三种定位模式：
+- 閲囬泦鎵嬫満涔濊酱 IMU 涓殑涓夌被鏍稿績鍘熷鏁版嵁锛?
+  - 鍔犻€熷害璁?
+  - 闄€铻轰华
+  - 纾佸姏璁?
+- 浣跨敤 `PDR-main` 鍚岀被鐧惧害鍦板浘搴曞浘锛屾敮鎸佹墜鍔跨缉鏀?
+- 鏀寔涓夌瀹氫綅妯″紡锛?
   - `PDR`
-  - `卫星导航`
-  - `PDR + 卫星导航`
-- 长按地图设置 PDR 起点
-- 记录原始传感器数据到 `imu_raw.csv`
-- 记录步级 PDR 输出到 `pdr_steps.csv`
-- 横竖屏切换时不重建 Activity，会话不中断
+  - `鍗槦瀵艰埅`
+  - `PDR + 鍗槦瀵艰埅`
+- 闀挎寜鍦板浘璁剧疆 PDR 璧风偣
+- 璁板綍鍘熷浼犳劅鍣ㄦ暟鎹埌 `imu_raw.csv`
+- 璁板綍姝ョ骇 PDR 杈撳嚭鍒?`pdr_steps.csv`
+- 妯珫灞忓垏鎹㈡椂涓嶉噸寤?Activity锛屼細璇濅笉涓柇
 
-## 数据保存位置
+## 鏁版嵁淇濆瓨浣嶇疆
 
-会话文件默认写入：
+浼氳瘽鏂囦欢榛樿鍐欏叆锛?
 
-`Android/data/com.example.imupdr/files/Documents/imu_pdr_sessions/<时间戳>/`
+`Android/data/com.example.imupdr/files/Documents/imu_pdr_sessions/<鏃堕棿鎴?/`
 
-每次会话包含：
+姣忔浼氳瘽鍖呭惈锛?
 
 - `imu_raw.csv`
 - `pdr_steps.csv`
 
-## 核心文件
+## 鏍稿績鏂囦欢
 
 - `app/src/main/java/com/example/imupdr/MainActivity.kt`
 - `app/src/main/java/com/example/imupdr/PdrProcessor.kt`
 - `app/src/main/java/com/example/imupdr/CsvSessionWriter.kt`
 - `app/src/main/java/com/example/imupdr/Transer.java`
 
-## 使用方式
+## 浣跨敤鏂瑰紡
 
-1. 用 Android Studio 打开 `PDR/`
-2. 等待 Gradle 同步完成
-3. 安装到带加速度计、陀螺仪、磁力计和 GNSS 的 Android 手机
-4. 根据需要选择 `PDR / 卫星导航 / PDR+卫星`
-5. 如需纯 PDR，建议先长按地图设置起点
-6. 点击“开始采集”
+1. 鐢?Android Studio 鎵撳紑 `PDR/`
+2. 绛夊緟 Gradle 鍚屾瀹屾垚
+3. 瀹夎鍒板甫鍔犻€熷害璁°€侀檧铻轰华銆佺鍔涜鍜?GNSS 鐨?Android 鎵嬫満
+4. 鏍规嵁闇€瑕侀€夋嫨 `PDR / 鍗槦瀵艰埅 / PDR+鍗槦`
+5. 濡傞渶绾?PDR锛屽缓璁厛闀挎寜鍦板浘璁剧疆璧风偣
+6. 鐐瑰嚮鈥滃紑濮嬮噰闆嗏€?
 
-## 当前限制
+## 褰撳墠闄愬埗
 
-- 当前融合模式是轻量级位置校正，不是完整卡尔曼融合
-- PDR 步长模型和峰值阈值仍需按设备和携带方式继续调参
-- 航向仍以加速度计 + 磁力计为主，陀螺仪当前主要用于原始数据采集
+- 褰撳墠铻嶅悎妯″紡鏄交閲忕骇浣嶇疆鏍℃锛屼笉鏄畬鏁村崱灏旀浖铻嶅悎
+- PDR 姝ラ暱妯″瀷鍜屽嘲鍊奸槇鍊间粛闇€鎸夎澶囧拰鎼哄甫鏂瑰紡缁х画璋冨弬
+- 鑸悜浠嶄互鍔犻€熷害璁?+ 纾佸姏璁′负涓伙紝闄€铻轰华褰撳墠涓昏鐢ㄤ簬鍘熷鏁版嵁閲囬泦
