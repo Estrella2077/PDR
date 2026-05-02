@@ -58,6 +58,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val preferences by lazy { getSharedPreferences(PREFS_NAME, MODE_PRIVATE) }
     private val pdrProcessor = PdrProcessor()
+    private val gnssModeFusion = GnssFusionEkf()
+    private val hybridModeFusion = GnssFusionEkf()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val openTrackFileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let { importTrackFile(it) }
@@ -88,10 +90,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private var anchorPoint: GPSPoint? = null
     private var latestGnssPoint: GPSPoint? = null
+    private var lastGnssFilteredPoint: GPSPoint? = null
     private var latestGnssAccuracyMeters = Float.NaN
     private var latestGnssTimeMs = 0L
     private var lastPdrPoint: GPSPoint? = null
     private var lastHybridPoint: GPSPoint? = null
+    private var lastPdrLocalXMeters = 0.0
+    private var lastPdrLocalYMeters = 0.0
 
     private var visibleSatellites = 0
     private var usedSatellites = 0
@@ -367,6 +372,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             anchorPoint?.let { point ->
                 pdrProcessor.setReferenceLocation(point.lat, point.lon)
                 updateDisplayReferenceLocation(point.lat, point.lon)
+                hybridModeFusion.setAnchor(point)
             }
             if (isRunning) {
                 pdrProcessor.reset()
@@ -374,11 +380,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 anchorPoint?.let { point ->
                     pdrProcessor.setReferenceLocation(point.lat, point.lon)
                     updateDisplayReferenceLocation(point.lat, point.lon)
+                    hybridModeFusion.setAnchor(point)
                 }
                 pdrTrack.clear()
                 hybridTrack.clear()
                 lastPdrPoint = null
                 lastHybridPoint = null
+                lastPdrLocalXMeters = 0.0
+                lastPdrLocalYMeters = 0.0
                 clearPdrHistoryOnly()
                 Toast.makeText(this, "已重设 PDR 起点，并清空实时 PDR 轨迹。", Toast.LENGTH_SHORT).show()
             } else {
@@ -399,12 +408,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             Toast.makeText(this, "当前手机缺少必需的加速度计、陀螺仪或磁力计。", Toast.LENGTH_LONG).show()
             return
         }
+        val startupAnchorCandidate = anchorPoint
+            ?: lastGnssFilteredPoint
+            ?: latestGnssPoint?.takeIf { !latestGnssAccuracyMeters.isFinite() || latestGnssAccuracyMeters <= ANCHOR_MAX_ACCURACY_METERS }
+            ?: fetchLastKnownLocation()?.let { GPSPoint(it.latitude, it.longitude) }
         resetTrackingState(true)
-        if (anchorPoint == null) anchorPoint = latestGnssPoint ?: fetchLastKnownLocation()?.let { GPSPoint(it.latitude, it.longitude) }
+        if (anchorPoint == null) anchorPoint = startupAnchorCandidate
         anchorPoint?.let { point ->
             pdrProcessor.setReferenceLocation(point.lat, point.lon)
             updateDisplayReferenceLocation(point.lat, point.lon)
+            hybridModeFusion.setAnchor(point)
         }
+        gnssModeFusion.setAnchor(anchorPoint ?: lastGnssFilteredPoint ?: latestGnssPoint)
         isRunning = true
         syncPdrExternalAttitude()
         redrawMap(resolveDisplayPoint())
@@ -479,8 +494,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun resetTrackingState(keepAnchor: Boolean) {
         pdrProcessor.reset()
         pdrProcessor.setModelConfig(currentModelConfig)
+        gnssModeFusion.setAnchor(if (keepAnchor) anchorPoint else null)
+        hybridModeFusion.setAnchor(if (keepAnchor) anchorPoint else null)
+        gnssModeFusion.reset()
+        hybridModeFusion.reset()
+        lastGnssFilteredPoint = null
         lastPdrPoint = null
         lastHybridPoint = null
+        lastPdrLocalXMeters = 0.0
+        lastPdrLocalYMeters = 0.0
         pdrTrack.clear()
         gnssTrack.clear()
         hybridTrack.clear()
@@ -541,31 +563,49 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun handleGnssLocation(location: Location, lastKnown: Boolean) {
+        val nowMs = System.currentTimeMillis()
+        val measurementTimestampMs = location.time.takeIf { it > 0L } ?: nowMs
+        val measurementAgeMs = (nowMs - measurementTimestampMs).coerceAtLeast(0L)
         latestGnssPoint = GPSPoint(location.latitude, location.longitude)
         latestGnssAccuracyMeters = if (location.hasAccuracy()) location.accuracy else Float.NaN
-        latestGnssTimeMs = System.currentTimeMillis()
+        latestGnssTimeMs = nowMs
         pdrProcessor.setReferenceLocation(
             latitude = location.latitude,
             longitude = location.longitude,
             altitudeMeters = if (location.hasAltitude()) location.altitude else 0.0,
-            timeMillis = System.currentTimeMillis()
+            timeMillis = nowMs
         )
         updateDisplayReferenceLocation(
             latitude = location.latitude,
             longitude = location.longitude,
             altitudeMeters = if (location.hasAltitude()) location.altitude else 0.0,
-            timeMillis = System.currentTimeMillis()
+            timeMillis = nowMs
         )
-        if (anchorPoint == null && (isRunning || currentMode != NavigationMode.PDR)) {
-            anchorPoint = GPSPoint(location.latitude, location.longitude)
+
+        val gnssPoint = latestGnssPoint ?: return
+        val gnssAcceptedForAnchor = (!lastKnown || measurementAgeMs <= LAST_KNOWN_MAX_AGE_MS) &&
+            (!latestGnssAccuracyMeters.isFinite() || latestGnssAccuracyMeters <= ANCHOR_MAX_ACCURACY_METERS)
+        if (anchorPoint == null && gnssAcceptedForAnchor && (isRunning || currentMode != NavigationMode.PDR)) {
+            anchorPoint = GPSPoint(gnssPoint.lat, gnssPoint.lon)
+            hybridModeFusion.setAnchor(anchorPoint)
+        }
+
+        val gnssUpdate = gnssModeFusion.processGnss(
+            point = gnssPoint,
+            accuracyMeters = latestGnssAccuracyMeters,
+            timestampMs = measurementTimestampMs,
+            isLastKnown = lastKnown,
+            measurementAgeMs = measurementAgeMs
+        )
+        if (gnssUpdate.point != null) {
+            lastGnssFilteredPoint = gnssUpdate.point
         }
         if (isRunning) {
-            appendTrackPoint(gnssTrack, latestGnssPoint)
             val snapshot = pdrProcessor.snapshot()
             csvWriter.appendRaw(
                 RawSensorRecord(
                     sensorTag = "GPS",
-                    wallTimeMs = System.currentTimeMillis(),
+                    wallTimeMs = nowMs,
                     eventTimestampNs = location.elapsedRealtimeNanos,
                     x = location.latitude.toFloat(),
                     y = location.longitude.toFloat(),
@@ -577,12 +617,25 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     posYMeters = snapshot.positionYMeters
                 )
             )
-            if (currentMode == NavigationMode.GNSS) redrawMap(latestGnssPoint)
-            val hybridPoint = computeHybridPoint(lastPdrPoint)
-            if (hybridPoint != null) {
-                lastHybridPoint = hybridPoint
-                appendTrackPoint(hybridTrack, hybridPoint)
-                if (currentMode == NavigationMode.HYBRID) redrawMap(hybridPoint)
+
+            if (gnssUpdate.measurementAccepted && gnssUpdate.point != null) {
+                appendTrackPoint(gnssTrack, gnssUpdate.point)
+                if (currentMode == NavigationMode.GNSS) redrawMap(gnssUpdate.point)
+            }
+
+            val hybridUpdate = hybridModeFusion.processGnss(
+                point = gnssPoint,
+                accuracyMeters = latestGnssAccuracyMeters,
+                timestampMs = measurementTimestampMs,
+                isLastKnown = lastKnown,
+                measurementAgeMs = measurementAgeMs
+            )
+            if (hybridUpdate.point != null) {
+                lastHybridPoint = hybridUpdate.point
+            }
+            if (hybridUpdate.measurementAccepted && hybridUpdate.point != null) {
+                appendTrackPoint(hybridTrack, hybridUpdate.point)
+                if (currentMode == NavigationMode.HYBRID) redrawMap(hybridUpdate.point)
             }
         } else {
             redrawMap(resolveDisplayPoint())
@@ -591,17 +644,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun handlePdrStep(step: StepUpdate) {
+        val deltaXMeters = step.xMeters.toDouble() - lastPdrLocalXMeters
+        val deltaYMeters = step.yMeters.toDouble() - lastPdrLocalYMeters
+        lastPdrLocalXMeters = step.xMeters.toDouble()
+        lastPdrLocalYMeters = step.yMeters.toDouble()
         val pdrPoint = buildPdrPoint(step.xMeters, step.yMeters)
         if (pdrPoint != null) {
             lastPdrPoint = pdrPoint
             appendTrackPoint(pdrTrack, pdrPoint)
             if (currentMode == NavigationMode.PDR) redrawMap(pdrPoint)
-            val hybridPoint = computeHybridPoint(pdrPoint)
-            if (hybridPoint != null) {
-                lastHybridPoint = hybridPoint
-                appendTrackPoint(hybridTrack, hybridPoint)
-                if (currentMode == NavigationMode.HYBRID) redrawMap(hybridPoint)
-            }
+        }
+        val hybridPoint = hybridModeFusion.processPdrStep(deltaXMeters, deltaYMeters, step.timestampMs).point
+        if (hybridPoint != null) {
+            lastHybridPoint = hybridPoint
+            appendTrackPoint(hybridTrack, hybridPoint)
+            if (currentMode == NavigationMode.HYBRID) redrawMap(hybridPoint)
         }
         csvWriter.appendStep(step)
     }
@@ -610,25 +667,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val anchor = anchorPoint ?: return null
         val origin = Transer.BL2XY(anchor.lat, anchor.lon)
         return Transer.XY2BL(origin.x + xMeters, origin.y + yMeters, origin.n)
-    }
-
-    private fun computeHybridPoint(pdrPoint: GPSPoint?): GPSPoint? {
-        val gnssPoint = latestGnssPoint
-        if (pdrPoint == null) return gnssPoint
-        if (gnssPoint == null) return pdrPoint
-        if (System.currentTimeMillis() - latestGnssTimeMs > GNSS_STALE_MS) return pdrPoint
-        val pdrXY = Transer.BL2XY(pdrPoint.lat, pdrPoint.lon)
-        val gnssXY = Transer.BL2XY(gnssPoint.lat, gnssPoint.lon)
-        val alpha = when {
-            !latestGnssAccuracyMeters.isFinite() -> 0.18
-            latestGnssAccuracyMeters <= 8f -> 0.45
-            latestGnssAccuracyMeters <= 15f -> 0.30
-            latestGnssAccuracyMeters <= 30f -> 0.18
-            else -> 0.10
-        }
-        val fusedX = pdrXY.x * (1.0 - alpha) + gnssXY.x * alpha
-        val fusedY = pdrXY.y * (1.0 - alpha) + gnssXY.y * alpha
-        return Transer.XY2BL(fusedX, fusedY, pdrXY.n)
     }
 
     private fun appendTrackPoint(track: MutableList<LatLng>, point: GPSPoint?) {
@@ -726,8 +764,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun resolveDisplayPoint(): GPSPoint? = when (currentMode) {
         NavigationMode.PDR -> lastPdrPoint ?: anchorPoint ?: latestGnssPoint ?: currentImportedTrackLastPoint()
-        NavigationMode.GNSS -> latestGnssPoint ?: currentImportedTrackLastPoint()
-        NavigationMode.HYBRID -> lastHybridPoint ?: latestGnssPoint ?: lastPdrPoint ?: anchorPoint ?: currentImportedTrackLastPoint()
+        NavigationMode.GNSS -> lastGnssFilteredPoint ?: latestGnssPoint ?: currentImportedTrackLastPoint()
+        NavigationMode.HYBRID -> lastHybridPoint ?: lastGnssFilteredPoint ?: latestGnssPoint ?: lastPdrPoint ?: anchorPoint ?: currentImportedTrackLastPoint()
     }
 
     private fun updateActionButtons() {
@@ -1036,7 +1074,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     companion object {
         private const val SENSOR_PERIOD_US = 20_000
         private const val LOCATION_PERMISSION_REQUEST = 2001
-        private const val GNSS_STALE_MS = 6_000L
         private const val HISTORY_SIZE = 90
         private const val PREFS_NAME = "imu_pdr_preferences"
         private const val KEY_HEIGHT_CM = "height_cm"
@@ -1046,6 +1083,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         private const val KEY_NAVIGATION_MODE = "navigation_mode"
         private const val DEFAULT_HEIGHT_CM = 180f
         private const val DEFAULT_STEP_LENGTH_SCALE = 0.67f
+        private const val ANCHOR_MAX_ACCURACY_METERS = 40f
+        private const val LAST_KNOWN_MAX_AGE_MS = 15_000L
         private const val DISPLAY_HEADING_WEIGHT = 0.32f
         private const val MARKER_HEADING_REDRAW_THRESHOLD_DEG = 3.0
     }

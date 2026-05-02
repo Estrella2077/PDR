@@ -30,8 +30,6 @@ data class ImportedTrackResult(
 }
 
 object ImportedTrackParser {
-    private const val GNSS_STALE_MS = 6_000L
-
     fun parse(context: Context, uri: Uri, fallbackHeightCm: Float, fallbackStepLengthScale: Float): ImportedTrackResult {
         val metadata = linkedMapOf<String, String>()
         val rawEvents = mutableListOf<RawEvent>()
@@ -45,9 +43,7 @@ object ImportedTrackParser {
                 while (true) {
                     val line = reader.readLine() ?: break
                     val trimmed = line.trim()
-                    if (trimmed.isEmpty()) {
-                        continue
-                    }
+                    if (trimmed.isEmpty()) continue
                     if (trimmed.startsWith("#")) {
                         parseMetadataLine(trimmed, metadata)
                         continue
@@ -89,12 +85,20 @@ object ImportedTrackParser {
         val processor = PdrProcessor().apply {
             setModelConfig(createHeightModelConfig(heightCm, stepLengthScale))
         }
+        val gnssFusion = GnssFusionEkf()
+        val hybridFusion = GnssFusionEkf()
+        val pdrPoints = mutableListOf<GPSPoint>()
+        val gnssPoints = mutableListOf<GPSPoint>()
+        val hybridPoints = mutableListOf<GPSPoint>()
 
-        val stepSamples = mutableListOf<StepSample>()
-        val gnssSamples = mutableListOf<GnssSample>()
-        val anchorPoint = parseAnchor(metadata)
-        if (anchorPoint != null) {
-            processor.setReferenceLocation(anchorPoint.lat, anchorPoint.lon)
+        var effectiveAnchorPoint = parseAnchor(metadata)
+        var lastStepXMeters = 0.0
+        var lastStepYMeters = 0.0
+
+        effectiveAnchorPoint?.let { anchor ->
+            processor.setReferenceLocation(anchor.lat, anchor.lon)
+            gnssFusion.setAnchor(anchor)
+            hybridFusion.setAnchor(anchor)
         }
 
         rawEvents.forEach { event ->
@@ -102,39 +106,69 @@ object ImportedTrackParser {
                 is RawEvent.Accelerometer -> {
                     val step = processor.updateAccelerometer(event.values, event.wallTimeMs, event.eventTimestampNs)
                     if (step != null) {
-                        stepSamples.add(StepSample(step.timestampMs, step.xMeters.toDouble(), step.yMeters.toDouble()))
+                        val deltaXMeters = step.xMeters.toDouble() - lastStepXMeters
+                        val deltaYMeters = step.yMeters.toDouble() - lastStepYMeters
+                        lastStepXMeters = step.xMeters.toDouble()
+                        lastStepYMeters = step.yMeters.toDouble()
+
+                        effectiveAnchorPoint?.let { anchor ->
+                            pdrPoints.addIfChanged(projectLocalPoint(anchor, step.xMeters.toDouble(), step.yMeters.toDouble()))
+                        }
+                        hybridFusion.processPdrStep(deltaXMeters, deltaYMeters, step.timestampMs).point?.let { point ->
+                            hybridPoints.addIfChanged(point)
+                        }
                     }
                 }
 
                 is RawEvent.Magnetometer -> processor.updateMagnetometer(event.values)
                 is RawEvent.Gyroscope -> processor.updateGyroscope(event.values, event.eventTimestampNs)
                 is RawEvent.Gnss -> {
-                    gnssSamples.addIfChanged(event.sample)
-                    if (anchorPoint == null && gnssSamples.size == 1) {
+                    if (effectiveAnchorPoint == null) {
+                        effectiveAnchorPoint = event.sample.point
                         processor.setReferenceLocation(
                             event.sample.point.lat,
                             event.sample.point.lon,
                             timeMillis = event.sample.timestampMs
                         )
+                        gnssFusion.setAnchor(event.sample.point)
+                        hybridFusion.setAnchor(event.sample.point)
+                    }
+
+                    gnssFusion.processGnss(
+                        point = event.sample.point,
+                        accuracyMeters = event.sample.accuracyMeters,
+                        timestampMs = event.sample.timestampMs,
+                        isLastKnown = false,
+                        measurementAgeMs = 0L
+                    ).let { update ->
+                        if (update.measurementAccepted && update.point != null) {
+                            gnssPoints.addIfChanged(update.point)
+                        }
+                    }
+
+                    hybridFusion.processGnss(
+                        point = event.sample.point,
+                        accuracyMeters = event.sample.accuracyMeters,
+                        timestampMs = event.sample.timestampMs,
+                        isLastKnown = false,
+                        measurementAgeMs = 0L
+                    ).let { update ->
+                        if (update.measurementAccepted && update.point != null) {
+                            hybridPoints.addIfChanged(update.point)
+                        }
                     }
                 }
             }
         }
 
-        val effectiveAnchorPoint = anchorPoint ?: gnssSamples.firstOrNull()?.point
-        if (anchorPoint != null) {
-            processor.setReferenceLocation(anchorPoint.lat, anchorPoint.lon)
+        if (pdrPoints.isEmpty() && effectiveAnchorPoint != null && recordedLocalPositions.isNotEmpty()) {
+            pdrPoints.addAll(projectLocalPositions(effectiveAnchorPoint, recordedLocalPositions))
         }
-        val pdrPoints = when {
-            effectiveAnchorPoint != null && stepSamples.isNotEmpty() -> projectStepSamples(effectiveAnchorPoint, stepSamples)
-            effectiveAnchorPoint != null && recordedLocalPositions.isNotEmpty() -> projectLocalPositions(effectiveAnchorPoint, recordedLocalPositions)
-            else -> emptyList()
-        }
-        val gnssPoints = gnssSamples.map { it.point }
-        val hybridPoints = when {
-            effectiveAnchorPoint != null && stepSamples.isNotEmpty() -> buildHybridTrack(effectiveAnchorPoint, stepSamples, gnssSamples)
-            gnssPoints.isNotEmpty() -> gnssPoints
-            else -> pdrPoints
+        if (hybridPoints.isEmpty()) {
+            when {
+                gnssPoints.isNotEmpty() -> hybridPoints.addAll(gnssPoints)
+                pdrPoints.isNotEmpty() -> hybridPoints.addAll(pdrPoints)
+            }
         }
 
         if (pdrPoints.isEmpty() && gnssPoints.isEmpty() && hybridPoints.isEmpty()) {
@@ -245,10 +279,6 @@ object ImportedTrackParser {
         return if (lat != null && lon != null) GPSPoint(lat, lon) else null
     }
 
-    private fun projectStepSamples(anchorPoint: GPSPoint, stepSamples: List<StepSample>): List<GPSPoint> {
-        return stepSamples.map { sample -> projectLocalPoint(anchorPoint, sample.xMeters, sample.yMeters) }
-    }
-
     private fun projectLocalPositions(anchorPoint: GPSPoint, localPositions: List<Pair<Double, Double>>): List<GPSPoint> {
         return localPositions.map { (xMeters, yMeters) -> projectLocalPoint(anchorPoint, xMeters, yMeters) }
     }
@@ -258,61 +288,10 @@ object ImportedTrackParser {
         return Transer.XY2BL(anchorXY.x + xMeters, anchorXY.y + yMeters, anchorXY.n)
     }
 
-    private fun buildHybridTrack(
-        anchorPoint: GPSPoint,
-        stepSamples: List<StepSample>,
-        gnssSamples: List<GnssSample>
-    ): List<GPSPoint> {
-        if (stepSamples.isEmpty()) {
-            return gnssSamples.map { it.point }
-        }
-
-        val hybridTrack = mutableListOf<GPSPoint>()
-        var gnssIndex = 0
-        var latestGnssSample: GnssSample? = null
-
-        stepSamples.forEach { step ->
-            while (gnssIndex < gnssSamples.size && gnssSamples[gnssIndex].timestampMs <= step.timestampMs) {
-                latestGnssSample = gnssSamples[gnssIndex]
-                gnssIndex += 1
-            }
-            val pdrPoint = projectLocalPoint(anchorPoint, step.xMeters, step.yMeters)
-            val hybridPoint = computeHybridPoint(pdrPoint, latestGnssSample, step.timestampMs) ?: pdrPoint
-            hybridTrack.addIfChanged(hybridPoint)
-        }
-
-        return if (hybridTrack.isNotEmpty()) hybridTrack else gnssSamples.map { it.point }
-    }
-
-    private fun computeHybridPoint(
-        pdrPoint: GPSPoint,
-        gnssSample: GnssSample?,
-        timestampMs: Long
-    ): GPSPoint? {
-        val latestGnss = gnssSample ?: return pdrPoint
-        if (timestampMs - latestGnss.timestampMs > GNSS_STALE_MS) {
-            return pdrPoint
-        }
-        val pdrXY = Transer.BL2XY(pdrPoint.lat, pdrPoint.lon)
-        val gnssXY = Transer.BL2XY(latestGnss.point.lat, latestGnss.point.lon)
-        val alpha = when {
-            !latestGnss.accuracyMeters.isFinite() -> 0.18
-            latestGnss.accuracyMeters <= 8f -> 0.45
-            latestGnss.accuracyMeters <= 15f -> 0.30
-            latestGnss.accuracyMeters <= 30f -> 0.18
-            else -> 0.10
-        }
-        val fusedX = pdrXY.x * (1.0 - alpha) + gnssXY.x * alpha
-        val fusedY = pdrXY.y * (1.0 - alpha) + gnssXY.y * alpha
-        return Transer.XY2BL(fusedX, fusedY, pdrXY.n)
-    }
-
     private fun parseMetadataLine(line: String, metadata: MutableMap<String, String>) {
         val content = line.removePrefix("#").trim()
         val separator = content.indexOf('=')
-        if (separator <= 0) {
-            return
-        }
+        if (separator <= 0) return
         metadata[content.substring(0, separator).trim()] = content.substring(separator + 1).trim()
     }
 
@@ -347,25 +326,12 @@ object ImportedTrackParser {
         }
     }
 
-    private fun MutableList<GnssSample>.addIfChanged(sample: GnssSample) {
-        val last = lastOrNull()
-        if (last == null || abs(last.point.lat - sample.point.lat) > 1e-7 || abs(last.point.lon - sample.point.lon) > 1e-7) {
-            add(sample)
-        }
-    }
-
     private sealed class RawEvent {
         data class Accelerometer(val wallTimeMs: Long, val eventTimestampNs: Long, val values: FloatArray) : RawEvent()
         data class Gyroscope(val wallTimeMs: Long, val eventTimestampNs: Long, val values: FloatArray) : RawEvent()
         data class Magnetometer(val wallTimeMs: Long, val eventTimestampNs: Long, val values: FloatArray) : RawEvent()
         data class Gnss(val sample: GnssSample) : RawEvent()
     }
-
-    private data class StepSample(
-        val timestampMs: Long,
-        val xMeters: Double,
-        val yMeters: Double
-    )
 
     private data class GnssSample(
         val timestampMs: Long,
